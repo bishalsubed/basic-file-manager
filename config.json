@@ -1,29 +1,31 @@
 {
-    "recursive": true,
-    "ignore": [
-        ".git",
-        "node_modules",
-        "dist",
-        "build",
-        ".next",
-        ".vscode",
-        "Images",
-        "Videos",
-        "Music",
-        "Documents",
-        "Spreadsheets",
-        "Presentations",
-        "Archives",
-        "Code",
-        "Configuration",
-        "Applications",
-        "Disk-Images",
-        "Torrents",
-        "Fonts",
-        "Other",
-        "No_Extension"
-    ],
-     "rules": {
+  "recursive": false,
+  "dry-run": false,
+  "verbose": false,
+  "ignore": [
+    ".git",
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    ".vscode",
+    "Images",
+    "Videos",
+    "Music",
+    "Documents",
+    "Spreadsheets",
+    "Presentations",
+    "Archives",
+    "Code",
+    "Configuration",
+    "Applications",
+    "Disk-Images",
+    "Torrents",
+    "Fonts",
+    "Other",
+    "No_Extension"
+  ],
+  "rules": {
     ".jpg": "Images",
     ".jpeg": "Images",
     ".png": "Images",
@@ -39,7 +41,6 @@
     ".raw": "Images",
     ".cr2": "Images",
     ".nef": "Images",
-
     ".mp4": "Videos",
     ".mkv": "Videos",
     ".avi": "Videos",
@@ -51,7 +52,6 @@
     ".mpeg": "Videos",
     ".mpg": "Videos",
     ".3gp": "Videos",
-
     ".mp3": "Music",
     ".wav": "Music",
     ".flac": "Music",
@@ -61,7 +61,6 @@
     ".opus": "Music",
     ".wma": "Music",
     ".aiff": "Music",
-
     ".pdf": "Documents",
     ".doc": "Documents",
     ".docx": "Documents",
@@ -73,17 +72,14 @@
     ".mobi": "Documents",
     ".pages": "Documents",
     ".tex": "Documents",
-
     ".xls": "Spreadsheets",
     ".xlsx": "Spreadsheets",
     ".csv": "Spreadsheets",
     ".ods": "Spreadsheets",
-
     ".ppt": "Presentations",
     ".pptx": "Presentations",
     ".odp": "Presentations",
     ".key": "Presentations",
-
     ".zip": "Archives",
     ".rar": "Archives",
     ".7z": "Archives",
@@ -93,7 +89,6 @@
     ".xz": "Archives",
     ".tgz": "Archives",
     ".tbz2": "Archives",
-
     ".js": "Code",
     ".ts": "Code",
     ".jsx": "Code",
@@ -127,11 +122,9 @@
     ".svelte": "Code",
     ".dart": "Code",
     ".r": "Code",
-
     ".ini": "Configuration",
     ".conf": "Configuration",
     ".cfg": "Configuration",
-
     ".exe": "Applications",
     ".msi": "Applications",
     ".apk": "Applications",
@@ -139,12 +132,9 @@
     ".dmg": "Applications",
     ".rpm": "Applications",
     ".AppImage": "Applications",
-
     ".iso": "Disk-Images",
     ".img": "Disk-Images",
-
     ".torrent": "Torrents",
-
     ".ttf": "Fonts",
     ".otf": "Fonts",
     ".woff": "Fonts",

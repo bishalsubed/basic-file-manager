@@ -44,13 +44,14 @@ async function doesPathExists(sourcePath) {
 async function moveFile(src, dest) {
     try {
         await fs.rename(src, dest);
+        return true;
     } catch (error) {
         if (error.code == "EXDEV") {
             try {
                 await fs.copyFile(src, dest);
                 await fs.unlink(src)
             } catch (error) {
-                throw error;
+                return false
             }
         }
     }
@@ -71,7 +72,7 @@ async function getFilesFromDir(files = [], pathUrl) {
         }
         return files
     } catch (error) {
-        console.log("Error when executing getFilesFromDir", error);
+        throw error;
     }
 }
 
@@ -87,8 +88,7 @@ async function rmFolder(deletePath) {
     try {
         await fs.rm(deletePath, { recursive: true, force: true })
     } catch (error) {
-        console.error('Error deleting folder:', err);
-        return false;
+        throw error
     }
 }
 
@@ -97,12 +97,29 @@ const __dirname = path.dirname(__filename)
 let configFile = path.join(__dirname, "config.json");
 
 const configData = await fs.readFile(configFile, "utf-8")
-const configuration = JSON.parse(configData)
+const configuration = JSON.parse(configData);
 
-let flags = process.argv
-let folderPath = flags[2]
-let homeDir = os.homedir()
+let flags = process.argv;
+let homeDir = os.homedir();
+const pathRegex = /^(\/|.*[\/\\].*)$/;
 
+let folderPath;
+
+for (let i = 2; i < flags.length; i++) {
+    if (pathRegex.test(flags[i])) {
+        folderPath = flags[i]
+    } else if (flags[i] == "-r" || flags[i] == "--recursive") {
+        configuration["recursive"] = true;
+    } else if (flags[i] == "-d" || flags[i] == "--dry-run") {
+        configuration["dry-run"] = true;
+    } else if (flags[i] == "-v" || flags[i] == "--verbose") {
+        configuration["verbose"] = true;
+    }
+    else {
+        console.log(`${c.yellow}Unknown option: ${flags[i]}\n\nUsage:\n\tnode index.js <folder> [options]\nOptions:\n\t-r or --recursive\trecursive\n\t-d or --dry-run\t\tdry-run\n\t-v or --verbose\t\tverbose${c.reset}`)
+        process.exit(1);
+    }
+}
 
 async function start(sourcePath) {
     if (sourcePath == path.parse(process.cwd()).root || sourcePath == homeDir || sourcePath == path.join(homeDir, "/")) {
@@ -121,8 +138,14 @@ async function start(sourcePath) {
         process.exit(1)
     }
 
+    let stats = {
+        "processed" : 0,
+        "moved" :0,
+        "skipped":0
+    }
 
     let contents = await fs.readdir(sourcePath)
+    stats["processed"] = stats["processed"] + contents.length;
     for (let i = 0; i < contents.length; i++) {
         if (!configuration.ignore.includes(contents[i])) {
             let fileCatgory = findFileCategory(contents[i])
@@ -136,12 +159,15 @@ async function start(sourcePath) {
                         fileCatgory = 'No_Extension'
                     }
                 } else {
-                    let files = await getFilesFromDir([], itsPath);
-                    files.forEach((elem) => {
-                        let filePath = elem.replace(`${sourcePath}`, "")
-                        fileCatgory = findFileCategory(filePath)
-                        categories[fileCatgory].push(filePath)
-                    })
+                    if(configuration["recursive"]){
+                        let files = await getFilesFromDir([], itsPath);
+                        stats["processed"] = stats["processed"] + files.length;
+                        files.forEach((elem) => {
+                            let filePath = elem.replace(`${sourcePath}`, "")
+                            fileCatgory = findFileCategory(filePath)
+                            categories[fileCatgory].push(filePath)
+                        })
+                    }
                     continue;
                 }
             };
@@ -150,14 +176,13 @@ async function start(sourcePath) {
         }
     }
     let dirToDelete = [];
-    let outputText = `${c.yellow}`
     for (const key in categories) {
         if (categories[key].length > 0) {
             let folderCategory = key
             let folderPath = path.join(sourcePath, folderCategory)
             if (folderCategory == "Disk_Images") folderPath = path.join(sourcePath, "Disk-Images")
             let doesFolderExists = await doesPathExists(folderPath)
-            if (!doesFolderExists) {
+            if (!doesFolderExists && !configuration["dry-run"]) {
                 await fs.mkdir(folderPath, { recursive: true })
             }
             for (let i = 0; i < categories[key].length; i++) {
@@ -169,52 +194,41 @@ async function start(sourcePath) {
                 }
                 let fileDestPath = path.join(folderPath, categories[folderCategory][i])
                 let doesFileDestPathExists = await doesPathExists(fileDestPath)
-                if (!doesFileDestPathExists) {
+                if (!doesFileDestPathExists && !configuration["dry-run"]) {
                     let firDir = path.dirname(fileDestPath)
                     await fs.mkdir(firDir, { recursive: true })
                     let origPath = path.dirname(fileSrcPath)
                     if (!dirToDelete.includes(origPath)) dirToDelete.push(origPath)
                 }
-                let status = await moveFile(fileSrcPath, fileDestPath)
-                if (!status) {
-                    console.log(`${c.red}Error moving files.${c.reset}`)
-                    return false
+                if(configuration["dry-run"]){
+                    console.log(`${c.cyan}${fileSrcPath} ------> ${fileDestPath}`)
+                    stats.processed += 1
+                }else{
+                    let status = await moveFile(fileSrcPath, fileDestPath)
+                    if (!status) {
+                        console.log(`${c.red}Error moving files.${c.reset}`)
+                        return false
+                    }
+                    stats.processed += 1
                 }
             }
-            outputText += `${categories[key].length} items to ${key} directory.\n`
         }
     }
-    for (let i = 0; i < dirToDelete.length; i++) {
-        let topDir = dirToDelete[i]
-        while (path.dirname(topDir) != folderPath) {
-            topDir = path.dirname(topDir)
-        }
-        await rmFolder(topDir)
+    if(configuration["verbose"]){
+        console.log(`${c.yellow}Processed: ${stats.processed}\nMoved: ${stats.moved}\nSkipped: ${stats.processed - stats.moved}`)
     }
-    outputText += `${c.reset}`
-    console.log(outputText)
 }
 
 start(folderPath)
 
 
 //FIXME:{
-    // symlink handling
-    // duplicate handling
-    // dry-run mode & verbose modde  
-    // safer empty-folder cleanup
-    // proper awaiting/error flow
+// symlink handling
+// duplicate handling
+// safer empty-folder cleanup
 // }
 
 
-
-
-
-
-// import fs from "fs/promises";
-// import path from "path";
-
-// const ROOT = folderPath; // your safe boundary
 
 // async function deleteFavourableDir(targetPath) {
 //     try {
