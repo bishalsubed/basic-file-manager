@@ -92,18 +92,18 @@ async function rmFolder(deletePath) {
     }
 }
 
-function fixFileCollide(file){
-  let fileArr = file.split(".")
-  
-  let filename = fileArr[0];
-  let elem = filename[filename.length - 2]
-  let newFileName;
-  if (Number.isNaN(Number(elem))) {
-        newFileName =  file.slice(0,filename.length) + "(1)" + file.slice(filename.length)
-  }else{
-      newFileName = file.slice(0, filename.length - 2) + (Number(elem) + 1) + file.slice(filename.length -1)
-  }
-  return newFileName
+function fixFileCollide(file) {
+    let fileArr = file.split(".")
+
+    let filename = fileArr[0];
+    let elem = filename[filename.length - 2]
+    let newFileName;
+    if (Number.isNaN(Number(elem))) {
+        newFileName = file.slice(0, filename.length) + "(1)" + file.slice(filename.length)
+    } else {
+        newFileName = file.slice(0, filename.length - 2) + (Number(elem) + 1) + file.slice(filename.length - 1)
+    }
+    return newFileName
 }
 
 
@@ -154,14 +154,16 @@ async function start(sourcePath) {
     }
 
     let stats = {
-        "processed" : 0,
-        "moved" :0,
-        "skipped":0
+        "processed": 0,
+        "moved": 0,
+        "skipped": 0
     }
 
     let contents = await fs.readdir(sourcePath)
     for (let i = 0; i < contents.length; i++) {
         if (!configuration.ignore.includes(contents[i])) {
+            let fileStat = await fs.lstat(path.join(sourcePath, contents[i]))
+            if (fileStat.isSymbolicLink()) continue
             stats["processed"] = stats["processed"] + 1;
             let fileCatgory = findFileCategory(contents[i])
             if (fileCatgory == "Other" && !path.extname(contents[i])) {
@@ -174,7 +176,7 @@ async function start(sourcePath) {
                         fileCatgory = 'No_Extension'
                     }
                 } else {
-                    if(configuration["recursive"]){
+                    if (configuration["recursive"]) {
                         let files = await getFilesFromDir([], itsPath);
                         stats["processed"] = stats["processed"] + files.length;
                         files.forEach((elem) => {
@@ -210,16 +212,16 @@ async function start(sourcePath) {
                 let fileDestPath = path.join(folderPath, categories[folderCategory][i])
                 let doesFileDestPathExists = await doesPathExists(fileDestPath)
                 let doesFileDestDirPathExists = await doesPathExists(path.dirname(fileDestPath))
-                if(doesFileDestPathExists){
+                if (doesFileDestPathExists) {
                     let fileName = path.basename(fileDestPath)
-                    while(true){
+                    while (true) {
                         let updatedFileName = fixFileCollide(fileName);
-                        let newFileDestPath = path.join(folderPath,updatedFileName)
-                        let doesUpdatedPathExists =  await doesPathExists(newFileDestPath)
-                        if(!doesUpdatedPathExists){
+                        let newFileDestPath = path.join(folderPath, updatedFileName)
+                        let doesUpdatedPathExists = await doesPathExists(newFileDestPath)
+                        if (!doesUpdatedPathExists) {
                             fileDestPath = newFileDestPath;
                             break;
-                        }else{
+                        } else {
                             fileName = updatedFileName
                         }
                     }
@@ -230,10 +232,10 @@ async function start(sourcePath) {
                     let origPath = path.dirname(fileSrcPath)
                     if (!dirToDelete.includes(origPath)) dirToDelete.push(origPath)
                 }
-                if(configuration["dry-run"]){
+                if (configuration["dry-run"]) {
                     console.log(`${c.cyan}${fileSrcPath} ------> ${fileDestPath}`)
                     stats.processed += 1
-                }else{
+                } else {
                     let status = await moveFile(fileSrcPath, fileDestPath)
                     if (!status) {
                         console.log(`${c.red}Error moving files.${c.reset}`)
@@ -244,7 +246,7 @@ async function start(sourcePath) {
             }
         }
     }
-    if(configuration["verbose"]){
+    if (configuration["verbose"]) {
         console.log(`${c.yellow}Processed: ${stats.processed}\nMoved: ${stats.moved}\nSkipped: ${stats.processed - stats.moved}`)
     }
 }
