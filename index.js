@@ -92,6 +92,21 @@ async function rmFolder(deletePath) {
     }
 }
 
+function fixFileCollide(file){
+  let fileArr = file.split(".")
+  
+  let filename = fileArr[0];
+  let elem = filename[filename.length - 2]
+  let newFileName;
+  if (Number.isNaN(Number(elem))) {
+        newFileName =  file.slice(0,filename.length) + "(1)" + file.slice(filename.length)
+  }else{
+      newFileName = file.slice(0, filename.length - 2) + (Number(elem) + 1) + file.slice(filename.length -1)
+  }
+  return newFileName
+}
+
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 let configFile = path.join(__dirname, "config.json");
@@ -145,9 +160,9 @@ async function start(sourcePath) {
     }
 
     let contents = await fs.readdir(sourcePath)
-    stats["processed"] = stats["processed"] + contents.length;
     for (let i = 0; i < contents.length; i++) {
         if (!configuration.ignore.includes(contents[i])) {
+            stats["processed"] = stats["processed"] + 1;
             let fileCatgory = findFileCategory(contents[i])
             if (fileCatgory == "Other" && !path.extname(contents[i])) {
                 let itsPath = path.join(sourcePath, contents[i])
@@ -194,7 +209,22 @@ async function start(sourcePath) {
                 }
                 let fileDestPath = path.join(folderPath, categories[folderCategory][i])
                 let doesFileDestPathExists = await doesPathExists(fileDestPath)
-                if (!doesFileDestPathExists && !configuration["dry-run"]) {
+                let doesFileDestDirPathExists = await doesPathExists(path.dirname(fileDestPath))
+                if(doesFileDestPathExists){
+                    let fileName = path.basename(fileDestPath)
+                    while(true){
+                        let updatedFileName = fixFileCollide(fileName);
+                        let newFileDestPath = path.join(folderPath,updatedFileName)
+                        let doesUpdatedPathExists =  await doesPathExists(newFileDestPath)
+                        if(!doesUpdatedPathExists){
+                            fileDestPath = newFileDestPath;
+                            break;
+                        }else{
+                            fileName = updatedFileName
+                        }
+                    }
+                }
+                if (!doesFileDestDirPathExists && !configuration["dry-run"]) {
                     let firDir = path.dirname(fileDestPath)
                     await fs.mkdir(firDir, { recursive: true })
                     let origPath = path.dirname(fileSrcPath)
@@ -209,7 +239,7 @@ async function start(sourcePath) {
                         console.log(`${c.red}Error moving files.${c.reset}`)
                         return false
                     }
-                    stats.processed += 1
+                    stats.moved += 1
                 }
             }
         }
@@ -224,7 +254,6 @@ start(folderPath)
 
 //FIXME:{
 // symlink handling
-// duplicate handling
 // safer empty-folder cleanup
 // }
 
