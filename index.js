@@ -84,14 +84,6 @@ function findFileCategory(fileName) {
     return fileCatgory
 }
 
-async function rmFolder(deletePath) {
-    try {
-        await fs.rm(deletePath, { recursive: true, force: true })
-    } catch (error) {
-        throw error
-    }
-}
-
 function fixFileCollide(file) {
     let fileArr = file.split(".")
 
@@ -133,6 +125,41 @@ for (let i = 2; i < flags.length; i++) {
     else {
         console.log(`${c.yellow}Unknown option: ${flags[i]}\n\nUsage:\n\tnode index.js <folder> [options]\nOptions:\n\t-r or --recursive\trecursive\n\t-d or --dry-run\t\tdry-run\n\t-v or --verbose\t\tverbose${c.reset}`)
         process.exit(1);
+    }
+}
+
+async function deleteFavourableDir(ROOT, targetPath) {
+    try {
+        let currentPath = path.resolve(targetPath);
+        if (!currentPath.startsWith(ROOT)) {
+            throw new Error("Outside of allowed root");
+        }
+        while (currentPath.startsWith(ROOT)) {
+            let items = await fs.readdir(currentPath);
+            if (items.length > 0) {
+                for (const item of items) {
+                    const itemPath = path.join(currentPath, item);
+                    const stat = await fs.stat(itemPath);
+                    if (stat.isDirectory()) {
+                        await deleteFavourableDir(itemPath);
+                    } else {
+                        await fs.unlink(itemPath);
+                    }
+                }
+
+                items = await fs.readdir(currentPath);
+            }
+            if (items.length === 0 && currentPath !== ROOT) {
+                await fs.rmdir(currentPath);
+            } else {
+                break;
+            }
+            currentPath = path.dirname(currentPath);
+            if (currentPath === ROOT) break;
+        }
+
+    } catch (err) {
+        console.log("Error deleting directory:", err);
     }
 }
 
@@ -178,12 +205,16 @@ async function start(sourcePath) {
                 } else {
                     if (configuration["recursive"]) {
                         let files = await getFilesFromDir([], itsPath);
-                        stats["processed"] = stats["processed"] + files.length;
-                        files.forEach((elem) => {
-                            let filePath = elem.replace(`${sourcePath}`, "")
-                            fileCatgory = findFileCategory(filePath)
-                            categories[fileCatgory].push(filePath)
-                        })
+                        if (files.length <= 0) {
+                            fs.rm(itsPath, { recursive: true, force: true })
+                        } else {
+                            stats["processed"] = stats["processed"] + files.length;
+                            files.forEach((elem) => {
+                                let filePath = elem.replace(`${sourcePath}`, "")
+                                fileCatgory = findFileCategory(filePath)
+                                categories[fileCatgory].push(filePath)
+                            })
+                        }
                     }
                     continue;
                 }
@@ -230,7 +261,14 @@ async function start(sourcePath) {
                     let firDir = path.dirname(fileDestPath)
                     await fs.mkdir(firDir, { recursive: true })
                     let origPath = path.dirname(fileSrcPath)
-                    if (!dirToDelete.includes(origPath)) dirToDelete.push(origPath)
+                    if (origPath != sourcePath) {
+                        if (!dirToDelete.includes(origPath)) dirToDelete.push(origPath)
+                    }
+                } else if (doesFileDestDirPathExists && !configuration["dry-run"]) {
+                    let origPath = path.dirname(fileSrcPath)
+                    if (origPath != sourcePath) {
+                        if (!dirToDelete.includes(origPath)) dirToDelete.push(origPath)
+                    }
                 }
                 if (configuration["dry-run"]) {
                     console.log(`${c.cyan}${fileSrcPath} ------> ${fileDestPath}`)
@@ -246,65 +284,16 @@ async function start(sourcePath) {
             }
         }
     }
+    for (let i = 0; i < dirToDelete.length; i++) {
+        let doesDeletionPathExists = await doesPathExists(dirToDelete[i])
+        if (doesDeletionPathExists) {
+            await deleteFavourableDir(sourcePath, dirToDelete[i])
+        }
+    }
     if (configuration["verbose"]) {
         console.log(`${c.yellow}Processed: ${stats.processed}\nMoved: ${stats.moved}\nSkipped: ${stats.processed - stats.moved}`)
     }
 }
 
+
 start(folderPath)
-
-
-//FIXME:{
-// symlink handling
-// safer empty-folder cleanup
-// }
-
-
-
-// async function deleteFavourableDir(targetPath) {
-//     try {
-//         let currentPath = path.resolve(targetPath);
-
-//         // safety: ensure inside ROOT
-//         if (!currentPath.startsWith(ROOT)) {
-//             throw new Error("Outside allowed root");
-//         }
-
-//         while (currentPath.startsWith(ROOT)) {
-
-//             let items = await fs.readdir(currentPath);
-
-//             // if not empty → clean children first
-//             if (items.length > 0) {
-
-//                 for (const item of items) {
-//                     const itemPath = path.join(currentPath, item);
-//                     const stat = await fs.stat(itemPath);
-
-//                     if (stat.isDirectory()) {
-//                         // recursively clean subdirectory first
-//                         await deleteFavourableDir(itemPath);
-//                     } else {
-//                         // delete file
-//                         await fs.unlink(itemPath);
-//                     }
-//                 }
-
-//                 // re-check after cleaning
-//                 items = await fs.readdir(currentPath);
-//             }
-
-//             // if empty now → delete folder
-//             if (items.length === 0 && currentPath !== ROOT) {
-//                 await fs.rmdir(currentPath);
-//             }
-
-//             // move upward
-//             if (currentPath === ROOT) break;
-//             currentPath = path.dirname(currentPath);
-//         }
-
-//     } catch (err) {
-//         console.log("Error deleting directory:", err);
-//     }
-// }
