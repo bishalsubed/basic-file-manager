@@ -63,11 +63,13 @@ async function getFilesFromDir(files = [], pathUrl) {
         let founds = await fs.readdir(pathUrl)
         for (const found of founds) {
             let filePath = path.join(pathUrl, found)
-            let dirStatus = (await fs.stat(filePath)).isDirectory();
-            if (dirStatus) {
-                await getFilesFromDir(files, path.join(filePath))
-            } else {
-                files.push(filePath)
+            let fileStats = await fs.stat(filePath)
+            if (!fileStats.isSymbolicLink()) {
+                if (fileStats.isFile()) {
+                    files.push(filePath)
+                } else if (fileStats.isDirectory()) {
+                    await getFilesFromDir(files, path.join(filePath))
+                }
             }
         }
         return files
@@ -96,6 +98,16 @@ function fixFileCollide(file) {
         newFileName = file.slice(0, filename.length - 2) + (Number(elem) + 1) + file.slice(filename.length - 1)
     }
     return newFileName
+}
+
+async function handleSymlink(path) {
+    try {
+        await fs.stat(path)
+    } catch (error) {
+        if (error.code == 'ENOENT') {
+            await fs.unlink(path)
+        }
+    }
 }
 
 
@@ -139,11 +151,15 @@ async function deleteFavourableDir(ROOT, targetPath) {
             if (items.length > 0) {
                 for (const item of items) {
                     const itemPath = path.join(currentPath, item);
-                    const stat = await fs.stat(itemPath);
-                    if (stat.isDirectory()) {
-                        await deleteFavourableDir(itemPath);
+                    const stat = await fs.lstat(itemPath);
+                    if (stat.isSymbolicLink()) {
+                        await handleSymlink(itemPath)
                     } else {
-                        await fs.unlink(itemPath);
+                        if (stat.isDirectory()) {
+                            await deleteFavourableDir(itemPath);
+                        } else {
+                            await fs.unlink(itemPath);
+                        }
                     }
                 }
 
@@ -189,14 +205,15 @@ async function start(sourcePath) {
     let contents = await fs.readdir(sourcePath)
     for (let i = 0; i < contents.length; i++) {
         if (!configuration.ignore.includes(contents[i])) {
-            let fileStat = await fs.lstat(path.join(sourcePath, contents[i]))
-            if (fileStat.isSymbolicLink()) continue
+            const contentPath = path.join(sourcePath, contents[i])
+            let fileStat = await fs.lstat(contentPath)
+            if (fileStat.isSymbolicLink()) {
+                await handleSymlink(contentPath)
+            }
             stats["processed"] = stats["processed"] + 1;
             let fileCatgory = findFileCategory(contents[i])
             if (fileCatgory == "Other" && !path.extname(contents[i])) {
-                let itsPath = path.join(sourcePath, contents[i])
-                let stat = await fs.stat(itsPath);
-                if (stat.isFile()) {
+                if (fileStat.isFile()) {
                     if (contents[i].startsWith(".")) {
                         fileCatgory = "Configuration";
                     } else {
@@ -204,9 +221,9 @@ async function start(sourcePath) {
                     }
                 } else {
                     if (configuration["recursive"]) {
-                        let files = await getFilesFromDir([], itsPath);
+                        let files = await getFilesFromDir([], contentPath);
                         if (files.length <= 0) {
-                            fs.rm(itsPath, { recursive: true, force: true })
+                            fs.rm(contentPath, { recursive: true, force: true })
                         } else {
                             stats["processed"] = stats["processed"] + files.length;
                             files.forEach((elem) => {
