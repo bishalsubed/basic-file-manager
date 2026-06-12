@@ -63,7 +63,7 @@ async function getFilesFromDir(files = [], pathUrl) {
         let founds = await fs.readdir(pathUrl)
         for (const found of founds) {
             let filePath = path.join(pathUrl, found)
-            let fileStats = await fs.stat(filePath)
+            let fileStats = await fs.lstat(filePath)
             if (!fileStats.isSymbolicLink()) {
                 if (fileStats.isFile()) {
                     files.push(filePath)
