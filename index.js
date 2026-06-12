@@ -156,9 +156,7 @@ async function deleteFavourableDir(ROOT, targetPath) {
                         await handleSymlink(itemPath)
                     } else {
                         if (stat.isDirectory()) {
-                            await deleteFavourableDir(itemPath);
-                        } else {
-                            await fs.unlink(itemPath);
+                            await deleteFavourableDir(ROOT,itemPath);
                         }
                     }
                 }
