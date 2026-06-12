@@ -90,12 +90,18 @@ function fixFileCollide(file) {
     let fileArr = file.split(".")
 
     let filename = fileArr[0];
-    let elem = filename[filename.length - 2]
-    let newFileName;
-    if (Number.isNaN(Number(elem))) {
-        newFileName = file.slice(0, filename.length) + "(1)" + file.slice(filename.length)
+    let openBrac = filename.lastIndexOf("(")
+    let closeBrac = filename.lastIndexOf(")")
+    let newFileName
+    if (openBrac != -1 && closeBrac != 1 && closeBrac > openBrac) {
+        let elem = file.slice(openBrac + 1, closeBrac)
+        if (Number.isNaN(Number(elem))) {
+            newFileName = file.slice(0, filename.length) + "(1)" + file.slice(filename.length)
+        } else {
+            newFileName = file.slice(0, openBrac + 1) + (Number(elem) + 1) + file.slice(closeBrac)
+        }
     } else {
-        newFileName = file.slice(0, filename.length - 2) + (Number(elem) + 1) + file.slice(filename.length - 1)
+        newFileName = file.slice(0, filename.length) + "(1)" + file.slice(filename.length)
     }
     return newFileName
 }
@@ -156,7 +162,7 @@ async function deleteFavourableDir(ROOT, targetPath) {
                         await handleSymlink(itemPath)
                     } else {
                         if (stat.isDirectory()) {
-                            await deleteFavourableDir(ROOT,itemPath);
+                            await deleteFavourableDir(ROOT, itemPath);
                         }
                     }
                 }
