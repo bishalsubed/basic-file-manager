@@ -93,12 +93,12 @@ function fixFileCollide(file) {
     let openBrac = filename.lastIndexOf("(")
     let closeBrac = filename.lastIndexOf(")")
     let newFileName
-    if (openBrac != -1 && closeBrac != 1 && closeBrac > openBrac) {
+    if (openBrac != -1 && closeBrac != -1 && closeBrac > openBrac) {
         let elem = file.slice(openBrac + 1, closeBrac)
         if (Number.isNaN(Number(elem))) {
             newFileName = file.slice(0, filename.length) + "(1)" + file.slice(filename.length)
         } else {
-            newFileName = file.slice(0, openBrac + 1) + (Number(elem) + 1) + file.slice(closeBrac)
+            newFileName = file.slice(0, openBrac + 1) + (Number(elem) + 1) + file.slice(closeBrac +1)
         }
     } else {
         newFileName = file.slice(0, filename.length) + "(1)" + file.slice(filename.length)
